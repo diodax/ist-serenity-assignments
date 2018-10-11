@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>536 p3 ex</title>
+  <link rel="stylesheet" type="text/css" href="jquery-ui/jquery-ui.min.css">
+  <link rel="stylesheet" type="text/css" href="tablesorter/themes/blue/style.css">
+</head>
+<script src="jquery/jquery-3.3.1.min.js" type="text/javascript"></script>
+<script src="jquery-ui/jquery-ui.min.js" type="text/javascript"></script>
+<script src="tablesorter/jquery.tablesorter.js"></script>
+<script type="text/javascript">
+	//now what?
+	/*if they enter an orgId (we will get it next class through a search), we need to find:
+		-What different areas of information the organization has (/Application/Tabs?orgId=x)
+		-then, find each area on demand (each will need it's own call)
+			General
+				Path: ...ESD/{orgId}/General
+			Locations
+				Path: ...ESD/{orgId}/Locations
+			Treatment
+				Path: ...ESD/{orgId}/Treatments
+			Training
+				Path: ...ESD/{orgId}/Training
+			Facilities
+				Path: ...ESD/{orgId}/Facilities
+			Equipment
+				Path: ...ESD/{orgId}/Equipment
+			Physicians
+				Path: ...ESD/{orgId}/Physicians
+			People
+				Path: ...ESD/{orgId}/People
+	*/ 
+  const url = "https://people.rit.edu/dmgics/754/23/proxy.php";
+
+  $(document).ready(function(){
+    getOrgTypes();
+    getCities();
+
+    $("#state").change(function(){
+      let stateCode = $(this).find(":selected").text();
+      getCities(stateCode);
+    });
+  });
+
+  function getCities(stateCode){
+    stateCode = stateCode || "NY";
+
+    $.ajax({
+      type: 'GET',      // HTTP method
+      async: true,      // non-blocking
+      cache: false,     // data's not cached between requests 
+      url: url,         // API endpoint
+      dataType: "xml",  // content-type of the response
+      data: { path: "/Cities?state=" + stateCode },
+      success: function(data, status) { // fires when the response comes back
+        //console.log( "data: ", data, "\nstatus: ", status);
+        let options = "";
+
+        // do a little bit of error checking
+        if ( $(data).find("error").length != 0) {
+          // do something elegant and graceful
+          console.error("AJAX error");
+        }
+        else if ( $(data).find("row").length === 0) {
+          $("#orgCitySearch").html("There are no cities in " + stateCode)
+        }
+        else {
+          // $(data).find("row")
+          options += "<option value=''>All Cities</option>";
+
+          $("row", data).each( function(){
+            options += "<option value='" + $(this).find("city").text() + "'>";
+            options += $("city", this).text();
+            options += "</option>";
+          });
+
+          // append to the DOM
+          $("#town").html(options);
+          // return options/data
+        }
+      }
+    });
+  }
+
+  function getOrgTypes() {
+    $.ajax({
+      type: 'GET',      // HTTP method
+      async: true,      // non-blocking
+      cache: false,     // data's not cached between requests 
+      url: url,         // API endpoint
+      dataType: "xml",  // content-type of the response
+      data: { path: "/OrgTypes" },
+      success: function(data, status) { // fires when the response comes back
+        //console.log( "data: ", data, "\nstatus: ", status);
+        let options = "<option value=''>Select an org type</option>";
+
+        // do a little bit of error checking
+        if ( $(data).find("error").length != 0) {
+          // do something elegant and graceful
+        }
+        else {
+          // $(data).find("row")
+          $("row", data).each( function(){
+            options += "<option value='" + $(this).find("type").text() + "'>";
+            options += $("type", this).text();
+            options += "</option>";
+          });
+
+          // append to the DOM
+          $("#orgType").html(options);
+          // return options/data
+        }
+      }
+    });
+  }
+
+  function search(){
+    $.ajax({
+      url: url,         // API endpoint
+      data: { path: "/Organizations?" + $("#search-form").serialize() },
+      success: function(data, status){
+        $("#tableOutput").html("");
+
+        if ($("row", data).length === 0) {
+          $("#tableOutput").html("No search results");
+        }
+        else {
+          $("#tableOutput").html(
+            $("row", data).length + " organizations found"
+          );
+
+          // template literal
+          let output = `<table class='tablesorter' id='search-results'>  
+                          <thead>
+                            <tr>
+                              <th>Type</th>
+                              <th>Name</th>
+                              <th>City</th>
+                              <th>Zip</th>
+                              <th>County</th>
+                              <th>State</th>
+                            </tr>
+                          </thead>
+                        <tbody>`;
+
+          $("row", data).each(function(){
+            let orgId = $("OrganizationID", this).text();
+
+            output += `<tr onclick='getTabs( "${orgId}" );'>`;
+            output += "<td>" + $("type", this).text() + "</td>";
+            output += "<td>" + $("Name", this).text() + "</td>";
+            output += "<td>" + $("city", this).text() + "</td>";
+            output += "<td>" + $("zip", this).text() + "</td>";
+            output += "<td>" + $("CountyName", this).text() + "</td>";
+            output += "<td>" + $("State", this).text() + "</td>";
+            output += "</tr>";
+          });             
+
+          output +=    `</tbody>
+                      </table>`;
+          $("#tableOutput").append(output);  
+          $("#search-results").tablesorter({
+            headers: {
+              0: { sorter: false }
+            }
+          });         
+        }
+      }
+    });
+  }
+
+  function getTabs(orgId){
+    $.ajax({
+      url: url,
+      data: { path: "/Application/Tabs?orgId=" + orgId },
+      success: function(data){
+        var txt = "",
+            $div = $("<div>").attr("id", "tabs"),
+            $ul = $("<ul>");
+        $div.append($ul);
+
+        $("row", data).each( function() {
+          txt = $( "Tab", $(this)).text();
+
+          $ul.append(
+            $("<li>").append($("<a>").attr("href", "#tabs-" + txt).html(txt))
+          );
+
+          $div.append(
+            $("<div>").attr("id", "tabs-" + txt).append(
+              // Apppend the tags for the data to be used later
+              $("<h2>").html(txt),
+              $("<p>").html(`<strong>Name: </strong><span id="${txt}-name"></span>`),
+              $("<p>").html(`<strong>Description: </strong><span id="${txt}-description"></span>`),
+              $("<p>").html(`<strong>Email: </strong><span id="${txt}-email"></span>`),
+              $("<p>").html(`<strong>Website: </strong><span id="${txt}-website"></span>`),
+              $("<p>").html(`<strong>Number of Members: </strong><span id="${txt}-num-members"></span>`),
+              $("<p>").html(`<strong>Number of Calls: </strong><span id="${txt}-num-calls"></span>`),
+              $("<p>").html(`<strong>Service Area: </strong><span id="${txt}-serv-area"></span>`)
+            )
+          );
+        });
+
+        $("#tabs-container").html($div);
+
+        // if UI tabs already existed, destroy them first
+        if ($( "#tabs-container" ).data("ui-tabs")) {
+          $( "#tabs-container" ).tabs( "destroy" );
+        }
+
+        $( "#tabs-container" ).tabs();
+        $( "#dialog-container" ).dialog({
+          minWidth: 753
+        });
+
+        getGeneralInfo(orgId);
+      }
+    });
+  }
+
+  function getGeneralInfo (orgId){
+    orgId = orgId || 0;
+
+    $.ajax({
+      type: 'GET',      // HTTP method
+      url: url,         // API endpoint
+      dataType: "xml",  // content-type of the response
+      data: { path: "/" + orgId + "/General" },
+      success: function(data, status) { // fires when the response comes back
+        // do a little bit of error checking
+        if ( $(data).find("error").length != 0) {
+          // do something elegant and graceful
+          console.error("AJAX error");
+        }
+        else {
+          let name = $(data).find("name").text();
+          let description = $(data).find("description").text();
+          let email = $(data).find("email").text();
+          let website = $(data).find("website").text();
+          let numMembers = $(data).find("nummembers").text();
+          let numCalls = $(data).find("numcalls").text();
+          let serviceArea = $(data).find("serviceArea").text();
+
+          // append to the DOM
+          $("#General-name").append(name);
+          $("#General-description").append(description);
+          $("#General-email").append(email);
+          $("#General-website").append(website);
+          $("#General-num-members").append(numMembers);
+          $("#General-num-calls").append(numCalls);
+          $("#General-serv-area").append(serviceArea);
+        }
+      }
+    });
+  }
+</script>
+</head>
+<body>
+  <h2>ESD Example</h2>Input org Id:
+  <form>
+    <input type="text" id="orgId"/><input type="button" value="find data" onclick=""/>
+  </form>
+  <div id="dialog-container" title="Details">
+    <div id="tabs-container"></div>
+  </div>
+  <hr>
+  <form id="search-form">
+    <fieldset>
+      <legend>Search Criteria</legend>
+      <p>Organization Type <select id="orgType" name="type" onchange=""></select></p>
+      <p><span id="orgLabel">Organization Name</span> <input id="orgName" name="name" type="text"> <em style="color: rgb(104, 129, 162);">*can be partial - "vol" for "Volunteer"</em></p>
+      <p>State <select id="state" name="state" onchange="">
+        <option value="">
+          All States
+        </option>
+        <option value="AK">AK</option>
+        <option value="AL">AL</option>
+        <option value="AR">AR</option>
+        <option value="AZ">AZ</option>
+        <option value="CA">CA</option>
+        <option value="CO">CO</option>
+        <option value="CT">CT</option>
+        <option value="DC">DC</option>
+        <option value="DE">DE</option>
+        <option value="FL">FL</option>
+        <option value="GA">GA</option>
+        <option value="HI">HI</option>
+        <option value="IA">IA</option>
+        <option value="ID">ID</option>
+        <option value="IL">IL</option>
+        <option value="IN">IN</option>
+        <option value="KS">KS</option>
+        <option value="KY">KY</option>
+        <option value="LA">LA</option>
+        <option value="MA">MA</option>
+        <option value="MD">MD</option>
+        <option value="ME">ME</option>
+        <option value="MI">MI</option>
+        <option value="MN">MN</option>
+        <option value="MO">MO</option>
+        <option value="MS">MS</option>
+        <option value="MT">MT</option>
+        <option value="NC">NC</option>
+        <option value="ND">ND</option>
+        <option value="NE">NE</option>
+        <option value="NH">NH</option>
+        <option value="NJ">NJ</option>
+        <option value="NM">NM</option>
+        <option value="NV">NV</option>
+        <option value="NY" selected="selected">NY</option>
+        <option value="OH">OH</option>
+        <option value="OK">OK</option>
+        <option value="OR">OR</option>
+        <option value="PA">PA</option>
+        <option value="RI">RI</option>
+        <option value="SC">SC</option>
+        <option value="SD">SD</option>
+        <option value="TN">TN</option>
+        <option value="TX">TX</option>
+        <option value="UT">UT</option>
+        <option value="VA">VA</option>
+        <option value="VT">VT</option>
+        <option value="WA">WA</option>
+        <option value="WI">WI</option>
+        <option value="WV">WV</option>
+        <option value="WY">WY</option>
+      </select> <span id="orgCitySearch"></span></p>
+      <p>City <select id="town" name="town" onchange=""><option value="">All Cities</option></select></p>
+      <p>County <input id="county" name="county" type="text"></p>
+      <p>ZIP Code <input id="zip" name="zip" type="text"></p>
+      <div style="margin:0 0 0 210px">
+        <input value="Show Results" onclick="search()" id="btnSearch" class="button" type="button"> <input type="reset" class="button" value="Reset Form" onclick="">
+      </div>
+    </fieldset>
+  </form>
+  <div id="tableOutput"></div>
+</body>
+</html>
