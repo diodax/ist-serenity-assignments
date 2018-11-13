@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang='en'>
+    <head>
+        <meta charset='utf-8' />
+        <title>Homework 3 - SVG Animations</title>
+        <style>
+            #triangle {
+                animation: spin-counter-clockwise 3s linear infinite;
+                transform-origin: 50% 50%;
+            }
+            #square-one {
+                transform-origin: 50% 50%;
+            }
+            @keyframes spin-counter-clockwise { 
+                0% { transform: rotate(360deg); }
+                100% { transform: rotate(0deg); } 
+            }
+            @keyframes spin-clockwise { 
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); } 
+            }
+        </style>
+    </head>
+    <body>
+        <svg xmlns="http://www.w3.org/2000/svg"
+             xmlns:xlink="http://www.w3.org/1999/xlink"
+             width="500px" height="500px"
+             style="border: 1px solid black;"> 
+            
+            <rect x="100" y="100" height="300" width="300" id="square-two" fill="#003333" />
+            <rect x="150" y="150" height="200" width="200" id="square-one" fill="#006666" />
+            <ellipse cx="250" cy="250" rx="90" ry="70" id="ellipse" fill="#009999">
+                <animateTransform attributeName="transform" begin="0s" dur="2s" type="rotate" from="0 250 250" to="360 250 250" repeatCount="indefinite" />
+            </ellipse> 
+            <polygon points="250,190 302,280 198,280" id="triangle" fill="#00cccc" />
+            <circle cx="250" cy="250" r="20" id="circle" fill="#00ffff" />
+        </svg>
+        <script>
+            var squareOne = document.getElementById("square-one").animate([
+                { transform: "rotate(360deg)" },
+                { transform: "rotate(0deg)" },
+            ], {
+                direction: "normal", // normal, alternate, reverse, alternate-reverse
+                duration: 8000,
+                iterations: Infinity,
+                easing: "linear"
+            });
+
+            document.getElementById("square-two").style.transformOrigin = "50% 50%";
+            document.getElementById("square-two").style.animation = "spin-clockwise 4s linear infinite";
+        </script>
+    </body>
+</html>
